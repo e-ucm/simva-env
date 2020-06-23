@@ -52,6 +52,18 @@ services:
 # XXX: Use owncloud docker images as an example of using wait-for in order to wait for MariaDB availabily before launching keycloak
   keycloak:
     image: jboss/keycloak:10.0.2
+    command:
+      - "-b 0.0.0.0"
+      # https://www.keycloak.org/docs/latest/server_installation/#profiles
+      - "-Dkeycloak.profile.feature.scripts=enabled"
+      #- "-Dkeycloak.profile.feature.upload_scripts=enabled"
+      # https://stackoverflow.com/questions/48930281/export-all-users-from-keycloak
+      - "-Dkeycloak.migration.action=import"
+      - "-Dkeycloak.migration.provider=dir"
+      - "-Dkeycloak.migration.dir=/var/tmp/simva-realm"
+      - "-Dkeycloak.migration.strategy=IGNORE_EXISTING"
+      - "-Dkeycloak.migration.usersExportStrategy=SAME_FILE"
+      - "-Dkeycloak.migration.realmName=simva"
     environment:
       - DB_VENDOR=mariadb
       - DB_ADDR=mariadb.keycloak.internal.test
@@ -63,6 +75,8 @@ services:
       - PROXY_ADDRESS_FORWARDING=true
     volumes:
       - /etc/localtime:/etc/localtime:ro
+      - ./deployments:/opt/jboss/keycloak/standalone/deployments
+      - ./simva-realm:/var/tmp/simva-realm:ro
     depends_on:
       - mariadb
     hostname: keycloak.internal.test
