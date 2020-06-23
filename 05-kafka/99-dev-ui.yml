@@ -1,0 +1,99 @@
+version: '3.7'
+
+networks:
+  traefik_services:
+    external: true
+
+services:
+
+  kafkacat:
+    image: confluentinc/cp-kafkacat:5.5.0
+    depends_on:
+      - kafka1
+    entrypoint: /bin/sh
+    tty: true
+    hostname: kafkacat.internal.test
+    networks:
+      default:
+        aliases:
+          - kafkacat.internal.test
+
+  topics-ui:
+#    image: landoop/kafka-topics-ui:0.9.4
+    image: landoop/kafka-topics-ui:latest
+    environment:
+      KAFKA_REST_PROXY_URL: http://kafka-rest-proxy.internal.test:8086/
+      PROXY: "true"
+    depends_on:
+      - kafka-rest-proxy
+    hostname: topics-ui.internal.test
+    networks:
+      default:
+        aliases:
+          - topics-ui.internal.test
+      traefik_services:
+        aliases:
+          - topics-ui.internal.test
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.services.topics-ui.loadbalancer.server.port=8000"
+      - "traefik.http.routers.topics-ui.rule=Host(`topics-ui.${DOMAIN_SUFFIX:-external.test}`)"
+      - "traefik.http.routers.topics-ui.entrypoints=websecure"
+      - "traefik.http.routers.topics-ui.tls=true"
+
+##
+## Parece que sólo hace falta un contenedor: https://github.com/elkozmon/zoonavigator
+##
+#  zoonavigator-api:
+#    image: elkozmon/zoonavigator-api:0.5.1
+#    networks:
+#      - kzk-connect
+#    environment:
+#      SERVER_HTTP_PORT: 9000
+#    depends_on:
+#      - zoo1
+#
+#  zoonavigator-web:
+#    image: elkozmon/zoonavigator-web:0.5.1
+#    ports:
+#     - "8004:8000"
+#    networks:
+#      - kzk-connect
+#      - traefik_services
+#    environment:
+#      API_HOST: "zoonavigator-api"
+#      API_PORT: 9000
+#    links:
+#     - zoonavigator-api
+#    depends_on:
+#     - zoonavigator-api
+#    dns:
+#      - 172.31.0.53
+#    labels:
+#      traefik.enable: true
+#      traefik.port: 8000
+#      traefik.frontend.rule: "Host:zoonavigator.simva.e-ucm.es"
+  zoonavigator:
+    restart: unless-stopped
+    image: elkozmon/zoonavigator:1.0.1
+    environment:
+      HTTP_PORT: 9000
+      CONNECTION_ZK1_NAME: zk1.internal.test
+      CONNECTION_ZK1_CONN: zk1.internal.test:2181
+      AUTO_CONNECT_CONNECTION_ID: ZK1
+    depends_on:
+      - zk1
+    hostname: zoonavigator.internal.test
+    networks:
+      default:
+        aliases:
+          - zoonavigator.internal.test
+      traefik_services:
+        aliases:
+          - zoonavigator.internal.test
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.services.zoonavigator.loadbalancer.server.port=9000"
+      - "traefik.http.routers.zoonavigator.rule=Host(`zoonavigator.${DOMAIN_SUFFIX:-external.test}`)"
+      - "traefik.http.routers.zoonavigator.entrypoints=websecure"
+      - "traefik.http.routers.zoonavigator.tls=true"

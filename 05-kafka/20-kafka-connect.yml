@@ -1,0 +1,75 @@
+version: '3.7'
+
+networks:
+  traefik_services:
+    external: true
+
+services:
+
+  connect:
+    image: confluentinc/cp-kafka-connect:5.5.0
+#XXX Check conflunentinc about classpath variables to avoid this hack    
+    command: bash -c "cp -a /etc/kafka-connect-storage-common/. /usr/share/java/kafka-connect-storage-common/ && /etc/confluent/docker/run"
+    environment:
+      CONNECT_BOOTSTRAP_SERVERS: "kafka1.internal.test:19092"
+      CONNECT_REST_PORT: 8083
+      CONNECT_LISTENERS: http://0.0.0.0:8083
+
+      CONNECT_GROUP_ID: "connect-cluster"
+      CONNECT_PRODUCER_CLIENT_ID: "connect-worker-producer"
+
+      CONNECT_CONFIG_STORAGE_TOPIC: connect-configs
+      CONNECT_OFFSET_STORAGE_TOPIC: connect-offsets
+      CONNECT_STATUS_STORAGE_TOPIC: connect-status
+
+      CONNECT_REPLICATION_FACTOR: 1
+      CONNECT_CONFIG_STORAGE_REPLICATION_FACTOR: 1
+      CONNECT_OFFSET_STORAGE_REPLICATION_FACTOR: 1
+      CONNECT_STATUS_STORAGE_REPLICATION_FACTOR: 1
+
+      CONNECT_KEY_CONVERTER: "org.apache.kafka.connect.storage.StringConverter"
+      CONNECT_VALUE_CONVERTER: "org.apache.kafka.connect.json.JsonConverter"
+      CONNECT_INTERNAL_KEY_CONVERTER: "org.apache.kafka.connect.json.JsonConverter"
+      CONNECT_INTERNAL_VALUE_CONVERTER: "org.apache.kafka.connect.json.JsonConverter"
+
+      # We had this values in the previous tests
+      #CONNECT_KEY_CONVERTER: io.confluent.connect.avro.AvroConverter
+      #CONNECT_KEY_CONVERTER_SCHEMA_REGISTRY_URL: "http://schema-registry.internal.test:8085"
+      #CONNECT_VALUE_CONVERTER: io.confluent.connect.avro.AvroConverter
+      #CONNECT_VALUE_CONVERTER_SCHEMA_REGISTRY_URL: "http:/schema-registry.internal.test:8085"
+      #CONNECT_INTERNAL_KEY_CONVERTER: "org.apache.kafka.connect.json.JsonConverter"
+      #CONNECT_INTERNAL_VALUE_CONVERTER: "org.apache.kafka.connect.json.JsonConverter"
+
+      CONNECT_REST_ADVERTISED_HOST_NAME: connect.internal.test
+      CONNECT_LOG4J_ROOT_LOGLEVEL: "INFO"
+      CONNECT_LOG4J_LOGGERS: "org.apache.kafka.connect.runtime.rest=WARN,org.reflections=ERROR"
+      CONNECT_PLUGIN_PATH: '/usr/share/java,/etc/kafka-connect/jars'
+
+      # Minio secrets config
+      AWS_ACCESS_KEY_ID: minio
+      AWS_SECRET_ACCESS_KEY: password
+
+      # Reduce Connect memory utilization
+      KAFKA_HEAP_OPTS: "-Xms256M -Xmx512M"
+      # https://github.com/confluentinc/cp-demo/blob/5.5.0-post/docker-compose.yml
+      KAFKA_JVM_PERFORMANCE_OPTS: -server -XX:+UseG1GC -XX:GCTimeRatio=1
+                  -XX:MinHeapFreeRatio=10 -XX:MaxHeapFreeRatio=20
+                  -XX:MaxGCPauseMillis=10000 -XX:InitiatingHeapOccupancyPercent=35 -XX:+ExplicitGCInvokesConcurrent
+                  -XX:MaxInlineLevel=15 -Djava.awt.headless=true      
+    volumes:
+      - ./connect-plugins/connectors:/etc/kafka-connect/jars/
+      - ./connect-plugins/storage:/etc/kafka-connect-storage-common/
+      - ./full-stack/backup:/tmp
+    depends_on:
+      - zk1
+      - kafka1
+      #- schema-registry
+    hostname: connect.internal.test
+    networks:
+      default:
+        aliases:
+          - connect.internal.test
+# XXX Interim solution, better to use dns resolution to point to the traefik exposed minio.external.test
+      traefik_services:
+        aliases:
+          - connect.internal.test
