@@ -1,3 +1,6 @@
 [submodule "06-simva/simva"]
 	path = 06-simva/simva-api
 	url = https://github.com/e-ucm/simva
+[submodule "06-simva/simva-front"]
+	path = 06-simva/simva-front
+	url = https://github.com/e-ucm/simva-front
