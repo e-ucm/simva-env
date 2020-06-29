@@ -3,6 +3,7 @@ version: '3.7'
 networks:
   kafka_services:
     driver: bridge
+    name: "kafka_services"
 
 ## based on full-stack.yml
 services:
